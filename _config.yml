@@ -131,15 +131,13 @@ pagination_dir: page
 # Include / Exclude file(s)
 ## include:/exclude: options only apply to the 'source/' folder
 include:
-  - '.well-known/**'
 exclude:
-  - '**/*.md'
 ignore:
 
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-remote_theme: sumimakito/hexo-theme-typography
+theme: typography
 # Deployment
 ## Docs: https://hexo.io/docs/one-command-deployment
 deploy:
