@@ -1,9 +1,9 @@
-# 服务器终端环境搭建总结（zsh + Oh My Zsh + tmux + zoxide）
+---
+title: 服务器终端环境搭建总结（zsh + Oh My Zsh + tmux + zoxide）
+---
 
-本文记录一次在 **服务器 / 容器 / VSCode 集成终端** 环境下，
-从 bash 迁移到 **zsh + tmux** 的完整配置过程，以及中途踩过的一些坑和最终的稳定方案。
-
-目标很明确：**稳定、顺手、不过度折腾**。
+本文记录一次在 **服务器** 环境下， **zsh + tmux** 的完整配置过程。
+配置属于个人喜好，仅供参考。
 
 ---
 
@@ -15,11 +15,6 @@
 - 框架：**Oh My Zsh（OMZ）**
 - 会话管理：**tmux**
 - 目录跳转：**zoxide**
-- 使用场景：服务器 / Docker / VSCode Terminal
-
-核心原则：
-
-> 服务器环境优先 **稳定和可控**，不追求花哨主题和重插件。
 
 ---
 
@@ -31,125 +26,85 @@
 chsh -s /bin/zsh
 ```
 
-tmux 中也强制使用 zsh：
-
-```tmux
-set -g default-shell /bin/zsh
-set -g default-command /bin/zsh
-```
-
 ---
 
 ### 2. 正确初始化 Oh My Zsh
 
-`.zshrc` 的关键点：
 
-- `source $ZSH/oh-my-zsh.sh` **只能出现一次**
-- 插件要少
-- 服务器/容器不要用复杂主题
+装一些插件：
+```bash
+git clone https://github.com/zsh-users/zsh-autosuggestions \
+${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
-一个稳定模板示例：
+git clone https://github.com/zsh-users/zsh-syntax-highlighting \
+${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
-```zsh
-export ZSH="$HOME/.oh-my-zsh"
-DISABLE_AUTO_UPDATE="true"
-
-ZSH_THEME="robbyrussell"
-
-plugins=(
-  git
-  zsh-autosuggestions
-  zsh-syntax-highlighting
-)
-
-source $ZSH/oh-my-zsh.sh
-
-# syntax-highlighting 必须放最后
-source ${ZSH_CUSTOM:-$ZSH/custom}/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
 ```
 
+激活这些插件：
+```bash
+omz plugin enable tmux zsh-autosuggestions zsh-syntax-highlighting zoxide
+```
 ---
 
 ## 三、PATH 的正确添加方式（zsh）
 
-在 zsh 中，推荐直接操作 `path` 数组，而不是反复 `export PATH`。
-
+zoxid需要配置环境变量如下：
 ```zsh
 path+=(
-  $HOME/bin
   $HOME/.local/bin
 )
 ```
 
-建议 **放在 source oh-my-zsh 之前**。
-
 ---
 
-## 四、模糊跳目录（zoxide）
 
-### 1. 安装与初始化
+## 四、tmux
 
-```bash
-sudo apt install zoxide
-```
-
+1. 无感tmux
 ```zsh
-eval "$(zoxide init zsh)"
-```
-
----
-
-### 2. 将 `cd` 升级为“智能 cd”
-
-```zsh
-cd() {
-  if [[ $# -eq 0 ]]; then
-    builtin cd ~
-  elif [[ -d "$1" || "$1" == /* || "$1" == .* ]]; then
-    builtin cd "$@"
-  else
-    z "$@"
-  fi
-}
-```
-
----
-
-## 五、tmux 自动进入（不使用 OMZ tmux 插件）
-
-```zsh
+#(end of file)
 if [[ -o interactive ]] && [[ -z "$TMUX" ]]; then
   tmux attach -t main || tmux new -s main
 fi
 ```
+2. tmux优化
+```bash
+git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+```
 
----
+```bash
+cat > ~/.tmux.conf << 'EOF'
+# --- 基础设置 ---
+set -g mouse on
+set -g history-limit 50000
+set -g base-index 1
+setw -g pane-base-index 1
+set -g renumber-windows on
 
-## 六、tmux 基础优化
-
-```tmux
+# --- 快捷键优化 ---
 bind | split-window -h -c "#{pane_current_path}"
 bind - split-window -v -c "#{pane_current_path}"
-set -s escape-time 0
-set -g detach-on-destroy off
+bind r source-file ~/.tmux.conf \; display "配置文件已重载!"
+
+# --- 插件列表 ---
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-sensible'
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @plugin 'dracula/tmux'
+
+# --- 插件配置 ---
+set -g @continuum-restore 'on'
+set -g @dracula-plugins "cpu-usage ram-usage time"
+set -g @dracula-show-powerline true
+set -g @dracula-show-flags true
+set -g @dracula-refresh-rate 5
+
+# --- 初始化 (必须在最后) ---
+run '~/.tmux/plugins/tpm/tpm'
+EOF
 ```
 
----
-
-## 七、VSCode 集成终端修正
-
-```json
-"terminal.integrated.defaultProfile.linux": "zsh",
-"terminal.integrated.shellIntegration.enabled": false
-```
-
----
-
-## 八、踩坑总结
-
-- 多行 prompt 在容器下挡住输入
-- `alias cd='z'` 行为反直觉
-- OMZ tmux 插件在 VSCode 下不稳定
-- bash → zsh → tmux 多层嵌套
-
----
+进入tmux，Ctrl+b -> Shift+i
